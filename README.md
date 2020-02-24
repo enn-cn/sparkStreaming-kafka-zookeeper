@@ -38,19 +38,4 @@
 （3）提供了比较简单和优雅的关闭spark streaming流式程序功能
 
 
-## 博客相关
 
-（1）[个人站点(2018之后，同步更新）](http://8090nixi.com/) 
-
-（2）[iteye博客](<http://qindongliang.iteye.com/>)  
-
-
-
-
-
-
-## 我的公众号(woshigcs)
-
-有问题可关注我的公众号留言咨询
-
-![image](https://github.com/qindongliang/answer_sheet_scan/blob/master/imgs/gcs.jpg)

@@ -41,14 +41,15 @@ object SparkDirectStreaming {
 
 
 
-    var kafkaParams=Map[String,String]("bootstrap.servers"-> "192.168.10.6:9092,192.168.10.7:9092,192.168.10.8:9092")//创建一个kafkaParams
+    var kafkaParams=Map[String,String]("bootstrap.servers"-> "192.168.1.105:9092")//创建一个kafkaParams
     if (firstReadLastest)   kafkaParams += ("auto.offset.reset"-> OffsetRequest.LargestTimeString)//从最新的开始消费
     //创建zkClient注意最后一个参数最好是ZKStringSerializer类型的，不然写进去zk里面的偏移量是乱码
-    val  zkClient= new ZkClient("192.168.10.6:2181,192.168.10.7:2181,192.168.10.8:2181", 30000, 30000,ZKStringSerializer)
+    val  zkClient= new ZkClient("192.168.1.105:2181", 30000, 30000,ZKStringSerializer)
     val zkOffsetPath="/sparkstreaming/20171128"//zk的路径
-    val topicsSet="dc_test".split(",").toSet//topic名字
+    val topicsSet="test".split(",").toSet//topic名字
 
-    val ssc=new StreamingContext(sparkConf,Seconds(10))//创建StreamingContext,每隔多少秒一个批次
+    val ssc=new StreamingContext(sparkConf,Seconds(2))//创建StreamingContext,每隔多少秒一个批次
+    ssc.sparkContext.setLogLevel("WARN")
 
     val rdds:InputDStream[(String,String)]=createKafkaStream(ssc,kafkaParams,zkClient,zkOffsetPath,topicsSet)
 
@@ -66,8 +67,8 @@ object SparkDirectStreaming {
 
           //遍历每一个分区里面的消息
           partitions.foreach(msg=>{
-
-             log.info("读取的数据："+msg)
+            println("读取的数据："+msg._2)
+//             log.info("读取的数据："+msg)
             //process(msg)  //处理每条数据
 
           })
@@ -77,7 +78,7 @@ object SparkDirectStreaming {
         })
 
         //更新每个批次的偏移量到zk中，注意这段代码是在driver上执行的
-        KafkaOffsetManager.saveOffsets(zkClient,zkOffsetPath,rdd)
+//        KafkaOffsetManager.saveOffsets(zkClient,zkOffsetPath,rdd)
       }
 
 
