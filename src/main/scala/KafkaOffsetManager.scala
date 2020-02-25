@@ -23,7 +23,9 @@ object KafkaOffsetManager {
     * @return  偏移量Map or None
     */
    def readOffsets(zkClient: ZkClient, zkOffsetPath: String, topic: String): Option[Map[TopicAndPartition, Long]] = {
-    //（偏移量字符串,zk元数据)
+
+
+     //（偏移量字符串,zk元数据)
     val (offsetsRangesStrOpt, _) = ZkUtils.readDataMaybeNull(zkClient, zkOffsetPath)//从zk上读取偏移量
     offsetsRangesStrOpt match {
       case Some(offsetsRangesStr) =>
@@ -72,9 +74,15 @@ object KafkaOffsetManager {
     val offsetsRanges = rdd.asInstanceOf[HasOffsetRanges].offsetRanges
     //转换每个OffsetRange为存储到zk时的字符串格式 :  分区序号1:偏移量1,分区序号2:偏移量2,......
     val offsetsRangesStr = offsetsRanges.map(offsetRange => s"${offsetRange.partition}:${offsetRange.untilOffset}").mkString(",")
-    log.debug(" 保存的偏移量：  "+offsetsRangesStr)
+    log.warn(" 保存的偏移量：  "+offsetsRangesStr)
     //将最终的字符串结果保存到zk里面
-    ZkUtils.updatePersistentPath(zkClient, zkOffsetPath, offsetsRangesStr)
+//        ZkUtils.updatePersistentPath(zkClient, zkOffsetPath, offsetsRangesStr)
+  }
+
+  def saveOffsetPart(zkClient: ZkClient, zkOffsetPath: String, partitionId:String,offsetNum:String): Unit = {
+      var new_zkOffsetPath =  zkOffsetPath +"/" + partitionId
+      ZkUtils.updatePersistentPath(zkClient, new_zkOffsetPath, offsetNum)
+      log.warn(" 保存的偏移量: "+partitionId+":"+offsetNum)
   }
 
 

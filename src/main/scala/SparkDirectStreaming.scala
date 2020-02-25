@@ -7,9 +7,9 @@ import kafka.utils.ZKStringSerializer
 import org.I0Itec.zkclient.ZkClient
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
-import org.apache.spark.SparkConf
+import org.apache.spark.{SparkConf, TaskContext}
 import org.apache.spark.streaming.dstream.InputDStream
-import org.apache.spark.streaming.kafka.KafkaUtils
+import org.apache.spark.streaming.kafka.{HasOffsetRanges, KafkaUtils, OffsetRange}
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.spark_project.jetty.server.{Request, Server}
 import org.spark_project.jetty.server.handler.{AbstractHandler, ContextHandler}
@@ -38,7 +38,7 @@ object SparkDirectStreaming {
     val topicStr="topic001"; //多个的话 逗号 分隔
     var sparkIntervalSecond=5; //spark 读取 kafka topic 的间隔 秒
     val consumer_group_id="topic001-consumer-group-01"; //消费组 id
-    var zkOffsetPathStr="/kafka/consumers/"+ consumer_group_id + "/offsets/" + topicStr + "/" + partition;
+    var zkOffsetPathStr="/kafka/consumers/"+ consumer_group_id + "/offsets/" + topicStr ;
 
     val isLocal=true//是否使用local模式
     val firstReadLastest=true//第一次启动是否从最新的开始消费
@@ -71,27 +71,38 @@ object SparkDirectStreaming {
 
       if(!rdd.isEmpty()){//只处理有数据的rdd，没有数据的直接跳过
 
+        val offsetRanges = rdd.asInstanceOf[HasOffsetRanges].offsetRanges
+
         //迭代分区，里面的代码是运行在executor上面
-        rdd.foreachPartition(partitions=>{
+        rdd.foreachPartition(partition=>{
 
           //如果没有使用广播变量，连接资源就在这个地方初始化
           //比如数据库连接，hbase，elasticsearch，solr，等等
 
+          val o: OffsetRange = offsetRanges(TaskContext.get.partitionId)
+          var partitionId=o.partition
+          var fos =o.fromOffset
+          var uos =o.untilOffset
 
-          //遍历每一个分区里面的消息
-          partitions.foreach(msg=>{
-            println("读取的数据："+msg._2)
-//             log.info("读取的数据："+msg)
-            //process(msg)  //处理每条数据
+          if(partition.isEmpty){
+          }else{
+              println(s"读取到分区 -- topic: ${o.topic}, 分区id: ${partitionId}, 起始offset: ${fos}, 终止offset: ${uos}")
 
-          })
+              //遍历这个分区里面的消息
+              val list= partition.toList
+              for (i <- 0 to (uos-fos-1).toInt ) {
+                println("读取的行数据"+(o.untilOffset+i)+": "+list(i)._2)
 
-
+                //提交偏移量
+                KafkaOffsetManager.saveOffsetPart(zkClient, zkOffsetPath, partitionId.toString, uos.toString)
+              }
+          }
+          
 
         })
 
         //更新每个批次的偏移量到zk中，注意这段代码是在driver上执行的
-        KafkaOffsetManager.saveOffsets(zkClient,zkOffsetPath,rdd)
+//        KafkaOffsetManager.saveOffsets(zkClient,zkOffsetPath,rdd)
       }
 
 
