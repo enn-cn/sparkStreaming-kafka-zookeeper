@@ -57,7 +57,7 @@ object SparkDirectStreaming {
     )//创建一个kafkaParams
     if (firstReadLastest)   kafkaParams += ("auto.offset.reset"-> OffsetRequest.LargestTimeString)//从最新的开始消费
     //创建zkClient注意最后一个参数最好是ZKStringSerializer类型的，不然写进去zk里面的偏移量是乱码
-    val  zkClient= new ZkClient(zkClientUrl, 30000, 30000,ZKStringSerializer)
+    val zkClient= new ZkClient(zkClientUrl, 30000, 30000,ZKStringSerializer)
     val zkOffsetPath=zkOffsetPathStr //zk的路径
     val topicsSet=topicStr.split(",").toSet//topic名字
 
@@ -86,15 +86,17 @@ object SparkDirectStreaming {
 
           if(partition.isEmpty){
           }else{
-              println(s"读取到分区 -- topic: ${o.topic}, 分区id: ${partitionId}, 起始offset: ${fos}, 终止offset: ${uos}")
+              println(s"读取到分区 topic: ${o.topic}, 分区id: ${partitionId}, 起始offset: ${fos}, 终止offset: ${uos}")
 
               //遍历这个分区里面的消息
               val list= partition.toList
               for (i <- 0 to (uos-fos-1).toInt ) {
-                println("读取的行数据"+(o.untilOffset+i)+": "+list(i)._2)
+                println("读取的行数据"+(fos+i)+": "+list(i)._2)
 
                 //提交偏移量
-                KafkaOffsetManager.saveOffsetPart(zkClient, zkOffsetPath, partitionId.toString, uos.toString)
+
+//              dd(partitionId.toString, uos.toString)
+                KafkaOffsetManager.saveOffsetPart(ZKPool.getZKClient(zkClientUrl), zkOffsetPath, partitionId.toString, (fos+i+1).toString )
               }
           }
           
@@ -237,3 +239,5 @@ object SparkDirectStreaming {
 
 
 }
+
+
