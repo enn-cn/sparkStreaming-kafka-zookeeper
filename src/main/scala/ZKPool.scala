@@ -1,21 +1,25 @@
 import kafka.utils.ZKStringSerializer
 import org.I0Itec.zkclient.ZkClient
+import org.I0Itec.zkclient.serialize.ZkSerializer
 
 object ZKPool{
+
+  val strkey="someMapKey"
   private val map = scala.collection.mutable.Map[String, ZkClient]()
-  def getZKClient(zkUrl:String): ZkClient = {
-    if(map.contains(zkUrl)){
-      map.get(zkUrl).get
+
+  def getZKClient(zkUrl:String, sessionTimeout: Int, connectionTimeout: Int): ZkClient = {
+    if(map.contains(strkey)){
+      map.get(strkey).get
     }else{
-      val zkClient = new ZkClient(zkUrl, 30000, 30000,ZKStringSerializer)
-      map.put(zkUrl, zkClient)
+      val zkClient = new ZkClient(zkUrl, sessionTimeout, connectionTimeout,ZKStringSerializer)
+      map.put(strkey, zkClient)
       zkClient
     }
   }
 
   def close(zkUrl:String){
-    if(map.contains(zkUrl)){
-      map.remove(zkUrl).get.close()
+    if(map.contains(strkey)){
+      map.remove(strkey).get.close()
     }
   }
 

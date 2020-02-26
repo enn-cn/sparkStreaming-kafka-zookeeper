@@ -33,12 +33,12 @@ object SparkDirectStreaming {
     var masterStr="local[1]"
     var logLevel="WARN"
 
-    val brokers="192.168.1.105:9092"; //多个的话 逗号 分隔
-    val zkClientUrl="192.168.1.105:2181";
-    val topicStr="topic001"; //多个的话 逗号 分隔
+    val brokers="127.0.0.1:9092"; //多个的话 逗号 分隔
+    val zkClientUrl="127.0.0.1:2181";
+    val topicStr="topic001,topic002"; //多个的话 逗号 分隔
     var sparkIntervalSecond=5; //spark 读取 kafka topic 的间隔 秒
     val consumer_group_id="topic001-consumer-group-01"; //消费组 id
-    var zkOffsetPathStr="/kafka/consumers/"+ consumer_group_id + "/offsets/" + topicStr ;
+    var zkOffsetPath="/kafka/consumers/"+ consumer_group_id + "/offsets";//zk的路径
 
     val isLocal=true//是否使用local模式
     val firstReadLastest=true//第一次启动是否从最新的开始消费
@@ -57,8 +57,8 @@ object SparkDirectStreaming {
     )//创建一个kafkaParams
     if (firstReadLastest)   kafkaParams += ("auto.offset.reset"-> OffsetRequest.LargestTimeString)//从最新的开始消费
     //创建zkClient注意最后一个参数最好是ZKStringSerializer类型的，不然写进去zk里面的偏移量是乱码
-    val zkClient= new ZkClient(zkClientUrl, 30000, 30000,ZKStringSerializer)
-    val zkOffsetPath=zkOffsetPathStr //zk的路径
+    val zkClient=ZKPool.getZKClient(zkClientUrl, 30000, 20000)
+
     val topicsSet=topicStr.split(",").toSet//topic名字
 
     val ssc=new StreamingContext(sparkConf,Seconds(sparkIntervalSecond))//创建StreamingContext,每隔多少秒一个批次
@@ -80,13 +80,14 @@ object SparkDirectStreaming {
           //比如数据库连接，hbase，elasticsearch，solr，等等
 
           val o: OffsetRange = offsetRanges(TaskContext.get.partitionId)
+          val topic=o.topic
           var partitionId=o.partition
           var fos =o.fromOffset
           var uos =o.untilOffset
 
           if(partition.isEmpty){
           }else{
-              println(s"读取到分区 topic: ${o.topic}, 分区id: ${partitionId}, 起始offset: ${fos}, 终止offset: ${uos}")
+              println(s"读取到分区 topic: ${topic}, 分区id: ${partitionId}, 起始offset: ${fos}, 终止offset: ${uos}")
 
               //遍历这个分区里面的消息
               val list= partition.toList
@@ -96,7 +97,7 @@ object SparkDirectStreaming {
                 //提交偏移量
 
 //              dd(partitionId.toString, uos.toString)
-                KafkaOffsetManager.saveOffsetPart(ZKPool.getZKClient(zkClientUrl), zkOffsetPath, partitionId.toString, (fos+i+1).toString )
+                KafkaOffsetManager.saveOffsetPart(zkClientUrl,30000, 20000, zkOffsetPath,topic, partitionId.toString, (fos+i+1).toString )
               }
           }
           
@@ -209,22 +210,22 @@ object SparkDirectStreaming {
     * @param kafkaParams  配置kafka的参数
     * @param zkClient  zk连接的client
     * @param zkOffsetPath zk里面偏移量的路径
-    * @param topics     需要处理的topic
+    * @param topicsSet     需要处理的topic
     * @return   InputDStream[(String, String)] 返回输入流
     */
   def createKafkaStream(ssc: StreamingContext,
                         kafkaParams: Map[String, String],
                         zkClient: ZkClient,
                         zkOffsetPath: String,
-                        topics: Set[String]): InputDStream[(String, String)]={
+                        topicsSet: Set[String]): InputDStream[(String, String)]={
     //目前仅支持一个topic的偏移量处理，读取zk里面偏移量字符串
-    val zkOffsetData=KafkaOffsetManager.readOffsets(zkClient,zkOffsetPath,topics.last)
+    val zkOffsetData=KafkaOffsetManager.readOffsets2(zkClient,zkOffsetPath,topicsSet)
 
     val kafkaStream = zkOffsetData match {
       case None =>  //如果从zk里面没有读到偏移量，就说明是系统第一次启动
         log.info("系统第一次启动，没有读取到偏移量，默认就最新的offset开始消费")
         //使用最新的偏移量创建DirectStream
-        KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder](ssc, kafkaParams, topics)
+        KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder](ssc, kafkaParams, topicsSet)
       case Some(lastStopOffset) =>
         log.info("从zk中读取到偏移量，从上次的偏移量开始消费数据......")
         val messageHandler = (mmd: MessageAndMetadata[String, String]) => (mmd.key, mmd.message)

@@ -62,6 +62,50 @@ object KafkaOffsetManager {
     }
   }
 
+  def readOffsets2(zkClient: ZkClient, zkOffsetPath: String, topicSet: Set[String]): Option[Map[TopicAndPartition, Long]] = {
+
+
+        //这个topic在zk里面最新的分区数量
+        val  lastest_partitions= ZkUtils.getPartitionsForTopics(zkClient,topicSet.toList).get("topic001").get
+
+        var mapf =lastest_partitions.toList.map( part=>{
+
+          var (f, _) =ZkUtils.readDataMaybeNull(zkClient, zkOffsetPath + "/topic001/" + part.intValue());
+
+          f match {
+            case None => ""
+            case Some(num) =>
+              ( part.intValue().toString+":"+ num)
+          }
+        })
+
+        var offsetsRangesStr = mapf.mkString(",")
+
+        var offsets = offsetsRangesStr.split(",")//按逗号split成数组
+          .map(s => s.split(":"))//按冒号拆分每个分区和偏移量
+          .map { case Array(partitionStr, offsetStr) => (TopicAndPartition("topic001", partitionStr.toInt) -> offsetStr.toLong) }//加工成最终的格式
+          .toMap//返回一个Map
+
+        //说明有分区扩展了
+        if(offsets.size<lastest_partitions.size){
+          //得到旧的所有分区序号
+          val old_partitions=offsets.keys.map(p=>p.partition).toArray
+          //通过做差集得出来多的分区数量数组
+          val add_partitions=lastest_partitions.diff(old_partitions)
+          if(add_partitions.size>0){
+            log.warn("发现kafka新增分区："+add_partitions.mkString(","))
+            add_partitions.foreach(partitionId=>{
+              offsets += (TopicAndPartition("topic001",partitionId)->0)
+              log.warn("新增分区id："+partitionId+"添加完毕....")
+            })
+
+          }
+
+        }else{
+          log.warn("没有新增分区,原有分区："+lastest_partitions.mkString(","))
+        }
+        Some(offsets)//将Map返回
+  }
 
   /****
     * 保存每个批次的rdd的offset到zk中
@@ -79,10 +123,13 @@ object KafkaOffsetManager {
 //        ZkUtils.updatePersistentPath(zkClient, zkOffsetPath, offsetsRangesStr)
   }
 
-  def saveOffsetPart(zkClient: ZkClient, zkOffsetPath: String, partitionId:String,offsetNum:String): Unit = {
-      var new_zkOffsetPath =  zkOffsetPath +"/" + partitionId
-      ZkUtils.updatePersistentPath(zkClient, new_zkOffsetPath, offsetNum)
-      log.warn(" 保存的偏移量: "+partitionId+":"+offsetNum)
+  def saveOffsetPart(zkClientUrl: String,sessionTimeout: Int, connectionTimeout: Int, zkOffsetPath: String, topic:String,partitionId:String,offsetNum:String): Unit = {
+
+      var zkClient=ZKPool.getZKClient(zkClientUrl,sessionTimeout, connectionTimeout)
+      //kafka/consumers/groupid/offsets/topic/分区
+      var new_zkOffsetPath =  zkOffsetPath +"/" + topic+"/" + partitionId
+//      ZkUtils.updatePersistentPath(zkClient, new_zkOffsetPath, offsetNum)
+      log.warn(" 保存的偏移量: topic"+topic+"  分区"+partitionId+":"+offsetNum)
   }
 
 
