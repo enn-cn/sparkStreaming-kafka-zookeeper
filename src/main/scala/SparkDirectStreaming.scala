@@ -33,7 +33,7 @@ object SparkDirectStreaming {
   var zkOffsetPath="/kafka/consumers/"+ consumer_group_id + "/offsets";//zk的路径
 
   val isLocal=true//是否使用local模式
-  val firstReadLastest=true//第一次启动,从最新的开始消费, 确保第一次启动时间内,让每个topic的每个分区都存上数,来保存偏移量
+  val firstReadLastest=false  //第一次启动,从最新的开始消费, 确保第一次启动时间内,让每个topic的每个分区都存上数,来保存偏移量
 
 
   var kafkaParams=Map[String,String](
@@ -87,12 +87,12 @@ object SparkDirectStreaming {
 
           if(partition.isEmpty){
           }else{
-//              println(s"读取到分区 topic: ${topic}, 分区id: ${partitionId}, 起始offset: ${fos}, 终止offset: ${uos}")
+              println(s"读取 topic: ${topic}, partitionId: ${partitionId}, 起始offset: ${fos}, 终止offset: ${uos}")
 
               //遍历这个分区里面的消息
               val list= partition.toList
               for (i <- 0 to (uos-fos-1).toInt ) {
-                println("读取的行数据"+(fos+i)+": "+list(i)._2)
+                println("数据:"+(fos+i)+": "+list(i)._2)
 
                 //提交偏移量
                 KafkaOffsetManager.saveOffsetPart(zkClientUrl,30000, 20000, zkOffsetPath,topic, partitionId.toString, (fos+i+1).toString )
@@ -228,6 +228,8 @@ object SparkDirectStreaming {
 
       case false =>
         log.warn("从zk中读取到偏移量，从上次的偏移量开始消费数据......")
+        println(zkOffsetData)
+
         val messageHandler = (mmd: MessageAndMetadata[String, String]) => (mmd.key, mmd.message)
         //使用上次停止时候的偏移量创建DirectStream
         KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder, (String, String)](ssc, kafkaParams, zkOffsetData, messageHandler)
