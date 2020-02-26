@@ -28,7 +28,7 @@ object SparkDirectStreaming {
   val brokers="127.0.0.1:9092"; //多个的话 逗号 分隔
   val zkClientUrl="127.0.0.1:2181";
   val topicStr="topic001,topic002"; //多个的话 逗号 分隔
-  var sparkIntervalSecond=5; //spark 读取 kafka topic 的间隔 秒
+  var sparkIntervalSecond=10; //spark 读取 kafka topic 的间隔 秒
   val consumer_group_id="topic001-consumer-group-01"; //消费组 id
   var zkOffsetPath="/kafka/consumers/"+ consumer_group_id + "/offsets";//zk的路径
 
@@ -217,7 +217,7 @@ object SparkDirectStreaming {
                         zkOffsetPath: String,
                         topicsSet: Set[String]): InputDStream[(String, String)]={
     //目前仅支持一个topic的偏移量处理，读取zk里面偏移量字符串
-    var zkOffsetData=KafkaOffsetManager.readOffsets2(zkClient,zkOffsetPath,topicsSet)
+    var zkOffsetData=KafkaOffsetManager.readOffsets(zkClient,zkOffsetPath,topicsSet)
 
     val kafkaStream = firstReadLastest match {
       case true =>
