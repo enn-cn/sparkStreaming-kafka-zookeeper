@@ -116,7 +116,12 @@
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-streaming_2.11</artifactId>
             <version>${spark.streaming.version}</version>
+        </dependency>
 
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>4.4.0</version>
         </dependency>
 
 
