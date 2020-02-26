@@ -33,7 +33,7 @@ object SparkDirectStreaming {
   var zkOffsetPath="/kafka/consumers/"+ consumer_group_id + "/offsets";//zk的路径
 
   val isLocal=true//是否使用local模式
-  val firstReadLastest=true//第一次启动是否从最新的开始消费
+  val firstReadLastest=true//第一次启动,从最新的开始消费, 确保第一次启动时间内,让每个topic的每个分区都存上数,来保存偏移量
 
 
   var kafkaParams=Map[String,String](
@@ -87,7 +87,7 @@ object SparkDirectStreaming {
 
           if(partition.isEmpty){
           }else{
-              println(s"读取到分区 topic: ${topic}, 分区id: ${partitionId}, 起始offset: ${fos}, 终止offset: ${uos}")
+//              println(s"读取到分区 topic: ${topic}, 分区id: ${partitionId}, 起始offset: ${fos}, 终止offset: ${uos}")
 
               //遍历这个分区里面的消息
               val list= partition.toList
@@ -95,8 +95,6 @@ object SparkDirectStreaming {
                 println("读取的行数据"+(fos+i)+": "+list(i)._2)
 
                 //提交偏移量
-
-//              dd(partitionId.toString, uos.toString)
                 KafkaOffsetManager.saveOffsetPart(zkClientUrl,30000, 20000, zkOffsetPath,topic, partitionId.toString, (fos+i+1).toString )
               }
           }
@@ -220,18 +218,19 @@ object SparkDirectStreaming {
                         topicsSet: Set[String]): InputDStream[(String, String)]={
     //目前仅支持一个topic的偏移量处理，读取zk里面偏移量字符串
     var zkOffsetData=KafkaOffsetManager.readOffsets2(zkClient,zkOffsetPath,topicsSet)
-    if(firstReadLastest == true ) zkOffsetData = None
 
-    val kafkaStream = zkOffsetData match {
-      case None =>  //如果从zk里面没有读到偏移量，就说明是系统第一次启动
+    val kafkaStream = firstReadLastest match {
+      case true =>
+        //如果firstReadLastest，就说明是系统第一次启动 达到保存 初次偏移量的目的
         log.warn("系统第一次启动，从最新的offset开始消费")
         //使用最新的偏移量创建DirectStream
         KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder](ssc, kafkaParams, topicsSet)
-      case Some(lastStopOffset) =>
+
+      case false =>
         log.warn("从zk中读取到偏移量，从上次的偏移量开始消费数据......")
         val messageHandler = (mmd: MessageAndMetadata[String, String]) => (mmd.key, mmd.message)
         //使用上次停止时候的偏移量创建DirectStream
-        KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder, (String, String)](ssc, kafkaParams, lastStopOffset, messageHandler)
+        KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder, (String, String)](ssc, kafkaParams, zkOffsetData, messageHandler)
     }
     kafkaStream//返回创建的kafkaStream
   }
