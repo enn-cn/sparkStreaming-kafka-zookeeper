@@ -1,8 +1,6 @@
 import kafka.common.TopicAndPartition
 import kafka.utils.ZkUtils
 import org.I0Itec.zkclient.ZkClient
-import org.apache.spark.rdd.RDD
-import org.apache.spark.streaming.kafka.HasOffsetRanges
 
 /**
   *
@@ -18,7 +16,6 @@ object KafkaOffsetManager {
   def readOffsets(zkClient: ZkClient, zkOffsetPath: String, topicSet: Set[String]): Map[TopicAndPartition, Long] = {
     var topicMap= ZkUtils.getPartitionsForTopics(zkClient,topicSet.toList)
     val topics = topicMap.keys
-
 
     var offsets =topics.flatMap(key=>{
       topicMap.get(key).get.toList.map(part =>{
