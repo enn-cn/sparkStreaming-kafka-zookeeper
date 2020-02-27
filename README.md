@@ -37,5 +37,9 @@
 
 （3）提供了比较简单和优雅的关闭spark streaming流式程序功能
 
+spark-submit \
+--class SparkDirectStreaming \
+--master local[2] \
+/Users/fengsong/myGit/sparkStreaming-kafka-zookeeper/target/sparkStreaming-kafka-zookeeper-1.0.0-SNAPSHOT.jar
 
 

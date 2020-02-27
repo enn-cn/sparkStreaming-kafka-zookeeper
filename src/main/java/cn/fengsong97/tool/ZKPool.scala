@@ -1,6 +1,7 @@
+package cn.fengsong97.tool
+
 import kafka.utils.ZKStringSerializer
 import org.I0Itec.zkclient.ZkClient
-import org.I0Itec.zkclient.serialize.ZkSerializer
 
 object ZKPool{
 

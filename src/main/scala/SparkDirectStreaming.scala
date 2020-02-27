@@ -1,3 +1,5 @@
+import cn.fengsong97.tool.{HttpTool, KafkaOffsetManager, ZKPool}
+import com.alibaba.fastjson.{JSON, JSONObject}
 import kafka.api.OffsetRequest
 import kafka.message.MessageAndMetadata
 import kafka.serializer.StringDecoder
@@ -18,12 +20,14 @@ object SparkDirectStreaming {
   var appName="Direct Kafka Offset to Zookeeper"
   var logLevel="WARN"
 
-  val brokers="127.0.0.1:9092"; //多个的话 逗号 分隔
-  val zkClientUrl="127.0.0.1:2181";
+  val brokers="localhost:9092"; //多个的话 逗号 分隔
+  val zkClientUrl="localhost:2181";
   val topicStr="topic001,topic002"; //多个的话 逗号 分隔
   var sparkIntervalSecond=10; //spark 读取 kafka topic 的间隔 秒
   val consumer_group_id="topic001-consumer-group-01"; //消费组 id
   var zkOffsetPath="/kafka/consumers/"+ consumer_group_id + "/offsets";//zk的路径
+  var httpGetUrl="https://api.apiopen.top/getSongPoetry?page=1&count=20"
+  var httpPostUrl="https://api.apiopen.top/getSongPoetry?page=1&count=20"
 
   val isLocal=true//是否使用local模式
   val firstReadLastest=false  //第一次启动,从最新的开始消费, 确保第一次启动时间内,让每个topic的每个分区都存上数,来保存偏移量
@@ -86,9 +90,19 @@ object SparkDirectStreaming {
               val list= partition.toList
               for (i <- 0 to (uos-fos-1).toInt ) {
                 println("数据:"+(fos+i)+": "+list(i)._2)
+               val reponse = HttpTool.getJson(httpGetUrl,list(i)._2);
+               val code = reponse.code();
+               val body = reponse.body().string();
+               if (code == 200){
+                 val obj:JSONObject =JSON.parseObject(body);//将json字符串转换为json对象
+                 println("接口返回数据_"+(fos+i)+": "+obj.get("result"))
+                  //提交偏移量
+//                  KafkaOffsetManager.saveOffsetPart(zkClientUrl,30000, 20000, zkOffsetPath,topic, partitionId.toString, (fos+i+1).toString )
 
-                //提交偏移量
-                KafkaOffsetManager.saveOffsetPart(zkClientUrl,30000, 20000, zkOffsetPath,topic, partitionId.toString, (fos+i+1).toString )
+                }else{
+                 println("返回错误数据: " +body)
+               }
+
               }
           }
           

@@ -1,3 +1,5 @@
+package cn.fengsong97.tool
+
 import kafka.common.TopicAndPartition
 import kafka.utils.ZkUtils
 import org.I0Itec.zkclient.ZkClient

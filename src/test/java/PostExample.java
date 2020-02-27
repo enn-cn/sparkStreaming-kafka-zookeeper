@@ -1,4 +1,6 @@
 import java.io.IOException;
+
+import cn.fengsong97.tool.HttpTool;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -16,9 +18,9 @@ public class PostExample {
                 .url(url)
                 .post(body)
                 .build();
-        try (Response response = client.newCall(request).execute()) {
+
+            Response response = client.newCall(request).execute();
             return response.body().string();
-        }
     }
 
     String bowlingJson(String player1, String player2) {
@@ -38,5 +40,9 @@ public class PostExample {
         String json = example.bowlingJson("Jesse", "Jake");
         String response = example.post("http://www.roundsapp.com/post", json);
         System.out.println(response);
+        Response response2 = HttpTool.getJson("https://api.apiopen.top/getSongPoetry?page=1&count=20", json);
+        System.out.println(response2.code());
+        System.out.println(response2.body().string());
+
     }
 }
