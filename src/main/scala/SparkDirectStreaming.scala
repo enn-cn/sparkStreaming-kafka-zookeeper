@@ -32,8 +32,8 @@ class SparkDirectStreaming(prop: PropertiesInfo){
   val firstReadLastest=false  //第一次启动,从最新的开始消费, 确保第一次启动时间内,让每个topic的每个分区都存上数,来保存偏移量
 
   //文件内容替换为对应的princ以及keytab文件
-  val path = "c:/enn/dev/jaas.conf";
-  val krb5 = "c:/enn/dev/krb5.conf";
+  val path = "jaas.conf";
+  val krb5 = "krb5.conf";
   System.setProperty("java.security.auth.login.config", path)
   System.setProperty("java.security.krb5.conf", krb5)
   System.setProperty("sun.security.krb5.debug", "true")
