@@ -11,8 +11,6 @@ import org.I0Itec.zkclient.ZkClient
   * Created by QinDongLiang on 2017/11/28.
   */
 object KafkaOffsetManager {
-
-
   lazy val log = org.apache.log4j.LogManager.getLogger("KafkaOffsetManage")
 
   def readOffsets(zkClient: ZkClient, zkOffsetPath: String, topicSet: Set[String]): Map[TopicAndPartition, Long] = {
@@ -43,8 +41,8 @@ object KafkaOffsetManager {
       var zkClient=ZKPool.getZKClient(zkClientUrl,sessionTimeout, connectionTimeout)
       //kafka/consumers/groupid/offsets/topic/分区
       var new_zkOffsetPath =  zkOffsetPath +"/" + topic+"/" + partitionId
-      ZkUtils.updatePersistentPath(zkClient, new_zkOffsetPath, offsetNum)
-//      log.warn(" 保存的偏移量topic: "+topic+"  分区"+partitionId+":"+offsetNum)
+//      ZkUtils.updatePersistentPath(zkClient, new_zkOffsetPath, offsetNum)
+      log.warn(" 保存的偏移量topic: "+topic+"  分区"+partitionId+":"+offsetNum)
   }
 
 

@@ -1,4 +1,4 @@
-import cn.fengsong97.tool.{HttpTool, KafkaOffsetManager, ZKPool}
+import cn.fengsong97.tool.{HttpTool, KafkaOffsetManager, PropertiesInfo, ZKPool}
 import com.alibaba.fastjson.{JSON, JSONObject}
 import kafka.api.OffsetRequest
 import kafka.message.MessageAndMetadata
@@ -10,28 +10,34 @@ import org.apache.spark.streaming.kafka.{HasOffsetRanges, KafkaUtils, OffsetRang
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 
 /**
-  * Created by QinDongLiang on 2017/11/28.
+  * Created by fengsong on 2020/01/28.
   */
-object SparkDirectStreaming {
-
-
+class SparkDirectStreaming(prop: PropertiesInfo){
   val log = org.apache.log4j.LogManager.getLogger("SparkDirectStreaming")
 
-  var appName="Direct Kafka Offset to Zookeeper"
+  var appName=prop.getAppname
   var logLevel="WARN"
 
-  val brokers="localhost:9092"; //多个的话 逗号 分隔
-  val zkClientUrl="localhost:2181";
-  val topicStr="topic001,topic002"; //多个的话 逗号 分隔
+  val brokers=prop.getBrokerlist; //多个的话 逗号 分隔
+  val zkClientUrl=prop.getZookeeperCon;
+  val topicStr=prop.getTopicStr; //多个的话 逗号 分隔
   var sparkIntervalSecond=10; //spark 读取 kafka topic 的间隔 秒
-  val consumer_group_id="topic001-consumer-group-01"; //消费组 id
+  val consumer_group_id=prop.getGroupid; //消费组 id
   var zkOffsetPath="/kafka/consumers/"+ consumer_group_id + "/offsets";//zk的路径
-  var httpGetUrl="https://api.apiopen.top/getSongPoetry?page=1&count=20"
-  var httpPostUrl="https://api.apiopen.top/getSongPoetry?page=1&count=20"
+//  var httpGetUrl="https://api.apiopen.top/getSongPoetry?page=1&count=20"
+//  var httpPostUrl="https://api.apiopen.top/getSongPoetry?page=1&count=20"
+    var httpPostUrl=prop.getUrl
 
   val isLocal=true//是否使用local模式
   val firstReadLastest=false  //第一次启动,从最新的开始消费, 确保第一次启动时间内,让每个topic的每个分区都存上数,来保存偏移量
 
+  //文件内容替换为对应的princ以及keytab文件
+  val path = "c:/enn/dev/jaas.conf";
+  val krb5 = "c:/enn/dev/krb5.conf";
+  System.setProperty("java.security.auth.login.config", path)
+  System.setProperty("java.security.krb5.conf", krb5)
+  System.setProperty("sun.security.krb5.debug", "true")
+  System.setProperty("javax.security.auth.useSubjectCredsOnly", "false")
 
   var kafkaParams=Map[String,String](
     "bootstrap.servers"-> brokers,
@@ -39,12 +45,18 @@ object SparkDirectStreaming {
   )//创建一个kafkaParams
 
 
-  /***
-    * 创建StreamingContext
-    * @return
-    */
-  def createStreamingContext():StreamingContext={
+  def begin(): Unit = {
+    //创建StreamingContext
+    val ssc=createStreamingContext()
+    //开始执行
+    ssc.start()
+    //等待任务终止
+    ssc.awaitTermination()
+  }
 
+
+
+  def createStreamingContext():StreamingContext={
     val sparkConf=new SparkConf().setAppName(appName)
     if (isLocal)  sparkConf.setMaster("local[1]") //local模式
     sparkConf.set("spark.streaming.stopGracefullyOnShutdown","true")//优雅的关闭
@@ -72,10 +84,8 @@ object SparkDirectStreaming {
 
         //迭代分区，里面的代码是运行在executor上面
         rdd.foreachPartition(partition=>{
-
           //如果没有使用广播变量，连接资源就在这个地方初始化
           //比如数据库连接，hbase，elasticsearch，solr，等等
-
           val o: OffsetRange = offsetRanges(TaskContext.get.partitionId)
           val topic=o.topic
           var partitionId=o.partition
@@ -90,7 +100,7 @@ object SparkDirectStreaming {
               val list= partition.toList
               for (i <- 0 to (uos-fos-1).toInt ) {
                 println("数据:"+(fos+i)+": "+list(i)._2)
-               val reponse = HttpTool.getJson(httpGetUrl,list(i)._2);
+               val reponse = HttpTool.postJson(httpPostUrl,list(i)._2);
                val code = reponse.code();
                val body = reponse.body().string();
                if (code == 200){
@@ -98,7 +108,6 @@ object SparkDirectStreaming {
                  println("接口返回数据_"+(fos+i)+": "+obj.get("result"))
                   //提交偏移量
 //                  KafkaOffsetManager.saveOffsetPart(zkClientUrl,30000, 20000, zkOffsetPath,topic, partitionId.toString, (fos+i+1).toString )
-
                 }else{
                  println("返回错误数据: " +body)
                }
@@ -127,16 +136,7 @@ object SparkDirectStreaming {
 
 
 
-  def main(args: Array[String]): Unit = {
 
-    //创建StreamingContext
-    val ssc=createStreamingContext()
-    //开始执行
-    ssc.start()
-    //等待任务终止
-    ssc.awaitTermination()
-
-  }
 
   /****
     *

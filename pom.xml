@@ -21,7 +21,20 @@
         <json-simple.version>1.1.1</json-simple.version>
         <zk.client>0.3</zk.client>
     </properties>
-
+    <profiles>
+        <!-- 开发 默认激活 -->
+        <profile>
+            <id>dev</id>
+            <properties><env>dev</env></properties>
+            <activation><activeByDefault>true</activeByDefault></activation>
+        </profile>
+        <!-- 生产服务器 -->
+        <profile>
+            <id>pro</id>
+            <properties><env>pro</env></properties>
+            <activation><activeByDefault>false</activeByDefault></activation>
+        </profile>
+    </profiles>
 
     <dependencies>
 
@@ -96,7 +109,13 @@
 
     </dependencies>
     <build>
-
+        <resources>
+            <resource>
+            <directory>${project.basedir}/src/main/resources/${env}</directory>
+            <includes><include>*.*</include></includes>
+            <filtering>false</filtering>
+        </resource>
+        </resources>
 
         <pluginManagement>
             <plugins>
@@ -143,7 +162,14 @@
                     </execution>
                 </executions>
             </plugin>
-
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>6</source>
+                    <target>6</target>
+                </configuration>
+            </plugin>
 
 
         </plugins>

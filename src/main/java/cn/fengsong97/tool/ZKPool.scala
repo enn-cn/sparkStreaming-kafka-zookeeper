@@ -12,9 +12,9 @@ object ZKPool{
     if(map.contains(strkey)){
       map.get(strkey).get
     }else{
-      val zkClient = new ZkClient(zkUrl, sessionTimeout, connectionTimeout,ZKStringSerializer)
-      map.put(strkey, zkClient)
-      zkClient
+        val zkClient = new ZkClient(zkUrl, sessionTimeout, connectionTimeout,ZKStringSerializer)
+        map.put(strkey, zkClient)
+        zkClient
     }
   }
 
