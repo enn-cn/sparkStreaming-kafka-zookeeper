@@ -1,9 +1,13 @@
+import java.util.Properties
+
 import cn.fengsong97.tool.{HttpTool, KafkaOffsetManager, PropertiesInfo, ZKPool}
 import com.alibaba.fastjson.{JSON, JSONObject}
 import kafka.api.OffsetRequest
 import kafka.message.MessageAndMetadata
 import kafka.serializer.StringDecoder
 import org.I0Itec.zkclient.ZkClient
+import org.apache.kafka.clients.consumer.KafkaConsumer
+import org.apache.kafka.common.PartitionInfo
 import org.apache.spark.{SparkConf, TaskContext}
 import org.apache.spark.streaming.dstream.InputDStream
 import org.apache.spark.streaming.kafka.{HasOffsetRanges, KafkaUtils, OffsetRange}
@@ -32,8 +36,8 @@ class SparkDirectStreaming(prop: PropertiesInfo){
   val firstReadLastest=false  //第一次启动,从最新的开始消费, 确保第一次启动时间内,让每个topic的每个分区都存上数,来保存偏移量
 
   //文件内容替换为对应的princ以及keytab文件
-  val path = "jaas.conf";
-  val krb5 = "krb5.conf";
+  val path = "c:/enn/dev/jaas.conf";
+  val krb5 = "c:/enn/dev/krb5.conf";
   System.setProperty("java.security.auth.login.config", path)
   System.setProperty("java.security.krb5.conf", krb5)
   System.setProperty("sun.security.krb5.debug", "true")
@@ -43,6 +47,19 @@ class SparkDirectStreaming(prop: PropertiesInfo){
     "bootstrap.servers"-> brokers,
     "group.id" -> consumer_group_id
   )//创建一个kafkaParams
+
+  val consumerPro: Properties = new Properties
+  consumerPro.put("bootstrap.servers", brokers)
+  consumerPro.put("client.id", "getpartitions_date")
+  consumerPro.put("group.id", consumer_group_id)
+  consumerPro.put("enable.auto.commit", "false")
+  consumerPro.put("auto.commit.interval.ms", "10000")
+  consumerPro.put("session.timeout.ms", "30000")
+  consumerPro.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
+  consumerPro.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
+  consumerPro.put("kerberos.auth.enable", "true")
+  consumerPro.put("sasl.kerberos.service.name", "kafka")
+  consumerPro.put("security.protocol", "SASL_PLAINTEXT")
 
 
   def begin(): Unit = {
@@ -152,8 +169,20 @@ class SparkDirectStreaming(prop: PropertiesInfo){
                         zkClient: ZkClient,
                         zkOffsetPath: String,
                         topicsSet: Set[String]): InputDStream[(String, String)]={
+    var ff=scala.collection.mutable.Map[PartitionInfo,Int](
+    )//创建一个kafkaParams
+    var topic_partitons = topicsSet.map(topic =>{
+      new KafkaConsumer[Integer, String](consumerPro).partitionsFor(topic)
+    })
+
+    var ll = topic_partitons.flatMap(a=> a.toArray())
+    for ( (x:PartitionInfo) <- ll ) {
+      ff.put(x,x.partition())
+    }
+    ff.keys
+
     //目前仅支持一个topic的偏移量处理，读取zk里面偏移量字符串
-    var zkOffsetData=KafkaOffsetManager.readOffsets(zkClient,zkOffsetPath,topicsSet)
+    var zkOffsetData=KafkaOffsetManager.readOffsets(zkClient,zkOffsetPath,ff)
 
     val kafkaStream = firstReadLastest match {
       case true =>
