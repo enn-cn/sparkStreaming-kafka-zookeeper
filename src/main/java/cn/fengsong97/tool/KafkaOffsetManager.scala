@@ -18,20 +18,22 @@ object KafkaOffsetManager {
                         scala.collection.mutable.Map[TopicAndPartition, Long] = {
 
     var map=scala.collection.mutable.Map[TopicAndPartition, Long]()
-
-    ff.foreach((a:PartitionInfo,b:Int)=>{
+    val  it = ff.iterator
+    while (it.hasNext){
+      it.next()._1
       //循环获取每个topic和对应分区 保存的数据
-      var (f, _) =ZkUtils.readDataMaybeNull(zkClient, zkOffsetPath + "/"+a.topic()+"/" + a.partition().intValue());
+      var (f, _) =ZkUtils.readDataMaybeNull(zkClient, zkOffsetPath + "/"+it.next()._1.topic()+"/" + it.next()._1.partition().intValue());
       f match {
         case None => {
-          log.warn(s"发现kafka新增分区：${a.topic()} 分区 ${a.partition().intValue()}")
+          log.warn(s"发现kafka新增分区：${it.next()._1.topic()} 分区 ${it.next()._1.partition().intValue()}")
           var frn =0
-          map.put(TopicAndPartition(a.topic(), a.partition().intValue()) , frn.toLong)
+          map.put(TopicAndPartition(it.next()._1.topic(), it.next()._1.partition().intValue()) , frn.toLong)
         }
         case Some(num) =>
-          map.put(TopicAndPartition(a.topic(), a.partition().intValue()) , num.toLong)
+          map.put(TopicAndPartition(it.next()._1.topic(), it.next()._1.partition().intValue()) , num.toLong)
       }
-    })
+    }
+
 
 //    var topicMap= ZkUtils.getPartitionsForTopics(zkClient,topicSet.toList)
 //    val topics = topicMap.keys
