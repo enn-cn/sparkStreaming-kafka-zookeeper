@@ -20,9 +20,9 @@ object SparkDirectStreaming {
   var appName="Direct Kafka Offset to Zookeeper"
   var logLevel="WARN"
 
-  val brokers="localhost:9092"; //多个的话 逗号 分隔
-  val zkClientUrl="localhost:2181";
-  val topicStr="topic001,topic002"; //多个的话 逗号 分隔
+  val brokers="10.38.64.58:9092"; //多个的话 逗号 分隔
+  val zkClientUrl="host238.slave.dev.cluster.enn.cn:2181";
+  val topicStr="mysql-binlog"; //多个的话 逗号 分隔
   var sparkIntervalSecond=10; //spark 读取 kafka topic 的间隔 秒
   val consumer_group_id="topic001-consumer-group-01"; //消费组 id
   var zkOffsetPath="/kafka/consumers/"+ consumer_group_id + "/offsets";//zk的路径
@@ -30,7 +30,7 @@ object SparkDirectStreaming {
   var httpPostUrl="https://api.apiopen.top/getSongPoetry?page=1&count=20"
 
   val isLocal=true//是否使用local模式
-  val firstReadLastest=false  //第一次启动,从最新的开始消费, 确保第一次启动时间内,让每个topic的每个分区都存上数,来保存偏移量
+  val firstReadLastest=true  //第一次启动,从最新的开始消费, 确保第一次启动时间内,让每个topic的每个分区都存上数,来保存偏移量
 
 
   var kafkaParams=Map[String,String](
