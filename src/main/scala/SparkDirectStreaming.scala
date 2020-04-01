@@ -169,7 +169,7 @@ class SparkDirectStreaming(prop: PropertiesInfo){
                         zkClient: ZkClient,
                         zkOffsetPath: String,
                         topicsSet: Set[String]): InputDStream[(String, String)]={
-    var ff=scala.collection.mutable.Map[PartitionInfo,Int]()//创建一个kafkaParams
+    var ff=scala.collection.mutable.Map[PartitionInfo,Int]()
     var topic_partitons = topicsSet.map(topic =>{
       new KafkaConsumer[Integer, String](consumerPro).partitionsFor(topic)
     })
