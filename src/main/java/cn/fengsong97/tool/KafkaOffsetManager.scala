@@ -4,6 +4,8 @@ import kafka.common.TopicAndPartition
 import kafka.utils.ZkUtils
 import org.I0Itec.zkclient.ZkClient
 
+import scala.collection.mutable
+
 /**
   *
   * 负责kafka偏移量的读取和保存
@@ -15,12 +17,10 @@ object KafkaOffsetManager {
 
   lazy val log = org.apache.log4j.LogManager.getLogger("KafkaOffsetManage")
 
-  def readOffsets(zkClient: ZkClient, zkOffsetPath: String, topicSet: Set[String]): Map[TopicAndPartition, Long] = {
-    var topicMap= ZkUtils.getPartitionsForTopics(zkClient,topicSet.toList)
-    val topics = topicMap.keys
-
+  def readOffsets(zkClient: ZkClient, zkOffsetPath: String, partitionsForTopics: mutable.Map[String, Seq[Int]]): Map[TopicAndPartition, Long] = {
+    val topics = partitionsForTopics.keys
     var offsets =topics.flatMap(key=>{
-      topicMap.get(key).get.toList.map(part =>{
+      partitionsForTopics.get(key).get.toList.map(part =>{
         //循环获取每个topic和对应分区 保存的数据
         var (f, _) =ZkUtils.readDataMaybeNull(zkClient, zkOffsetPath + "/"+key+"/" + part.intValue());
         f match {
@@ -59,7 +59,41 @@ object KafkaOffsetManager {
 
 
 
+  /**
+    * 通过consumer 获得分区数量
+    * @param brokerlist
+    * @param groupid
+    * @param topicSet
+    * @return
+    */
+  def getPartitionsByConsumer(brokerlist: String,
+                              groupid: String,
+                              topicSet:Set[String]): mutable.Map[String, Seq[Int]] ={
+    val map: mutable.Map[String, Seq[Int]] = mutable.Map()
+    topicSet.foreach(topic=>{
+      var kafkaConsumer =KafkaConsumerTool.get(brokerlist,groupid)
+      var it = kafkaConsumer.partitionsFor(topic).iterator();
 
+      var str=""
+      while (it.hasNext){
+        str+= (it.next().partition().toString +",")
+      }
+      map.put(topic,str.split(",").filter(_!="").map(_.toInt).toSeq )
+    })
+    map
+
+  }
+
+  /**
+    * 通过zk 获得分区数量
+    * @param zkClient
+    * @param topics
+    * @return
+    */
+  def getPartitionsByZookeeper(zkClient: ZkClient,
+                               topics: Seq[String]): mutable.Map[String, Seq[Int]] ={
+    ZkUtils.getPartitionsForTopics(zkClient,topics.toList)
+  }
 
 
 }

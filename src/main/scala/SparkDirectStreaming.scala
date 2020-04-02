@@ -153,7 +153,8 @@ object SparkDirectStreaming {
                         zkOffsetPath: String,
                         topicsSet: Set[String]): InputDStream[(String, String)]={
     //目前仅支持一个topic的偏移量处理，读取zk里面偏移量字符串
-    var zkOffsetData=KafkaOffsetManager.readOffsets(zkClient,zkOffsetPath,topicsSet)
+    var partitionsForTopics=KafkaOffsetManager.getPartitionsByConsumer(brokers,consumer_group_id,topicsSet)
+    var zkOffsetData=KafkaOffsetManager.readOffsets(zkClient,zkOffsetPath,partitionsForTopics)
 
     val kafkaStream = firstReadLastest match {
       case true =>
