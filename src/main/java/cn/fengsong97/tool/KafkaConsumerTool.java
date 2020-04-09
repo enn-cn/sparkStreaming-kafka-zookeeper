@@ -26,9 +26,9 @@ public class KafkaConsumerTool {
         props.put("session.timeout.ms", "30000");
         props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
         props.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
-        props.put("kerberos.auth.enable", "true");
-        props.put("sasl.kerberos.service.name", "kafka");
-        props.put("security.protocol", "SASL_PLAINTEXT");
+//        props.put("kerberos.auth.enable", "true");
+//        props.put("sasl.kerberos.service.name", "kafka");
+//        props.put("security.protocol", "SASL_PLAINTEXT");
 
         kafkaConsumer = new KafkaConsumer<Integer, String>(props);
         return  kafkaConsumer;
