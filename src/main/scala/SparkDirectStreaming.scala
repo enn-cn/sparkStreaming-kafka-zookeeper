@@ -19,7 +19,7 @@ object SparkDirectStreaming {
 
   val brokers="10.38.64.58:9092"; //多个的话 逗号 分隔
   val zkClientUrl="host238.slave.dev.cluster.enn.cn:2181";
-  val topicStr="mysql-binlog,my-binlog-error"; //多个的话 逗号 分隔
+  val topicStr="mysql-binlog,mysql-binlog-error"; //多个的话 逗号 分隔
   var sparkIntervalSecond=10; //spark 读取 kafka topic 的间隔 秒
   val consumer_group_id="topic001-consumer-group-01"; //消费组 id
   var zkOffsetPath="/kafka/consumers/"+ consumer_group_id + "/offsets";//zk的路径
