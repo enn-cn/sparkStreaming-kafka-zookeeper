@@ -32,8 +32,8 @@ class SparkDirectStreaming(prop: PropertiesInfo){
   val firstReadLastest=false  //第一次启动,从最新的开始消费, 确保第一次启动时间内,让每个topic的每个分区都存上数,来保存偏移量
 
   //文件内容替换为对应的princ以及keytab文件
-  val path = "jaas.conf";
-  val krb5 = "krb5.conf";
+  val path = "./jaas.conf";
+  val krb5 = "./krb5.conf";
   System.setProperty("java.security.auth.login.config", path)
   System.setProperty("java.security.krb5.conf", krb5)
   System.setProperty("sun.security.krb5.debug", "true")
@@ -66,7 +66,7 @@ class SparkDirectStreaming(prop: PropertiesInfo){
 
     if (firstReadLastest)   kafkaParams += ("auto.offset.reset"-> OffsetRequest.LargestTimeString)//从最新的开始消费
     //创建zkClient注意最后一个参数最好是ZKStringSerializer类型的，不然写进去zk里面的偏移量是乱码
-    val zkClient=ZKPool.getZKClient(zkClientUrl, 30000, 20000)
+    val zkClient=ZKPool.getZKClient(zkClientUrl, 30000, 50000)
 
     val topicsSet=topicStr.split(",").toSet//topic名字
 
@@ -153,7 +153,8 @@ class SparkDirectStreaming(prop: PropertiesInfo){
                         zkOffsetPath: String,
                         topicsSet: Set[String]): InputDStream[(String, String)]={
     //目前仅支持一个topic的偏移量处理，读取zk里面偏移量字符串
-    var zkOffsetData=KafkaOffsetManager.readOffsets(zkClient,zkOffsetPath,topicsSet)
+    var partitionsForTopics=KafkaOffsetManager.getPartitionsByConsumer(brokers,consumer_group_id,topicsSet)
+    var zkOffsetData=KafkaOffsetManager.readOffsets(zkClient,zkOffsetPath,partitionsForTopics)
 
     val kafkaStream = firstReadLastest match {
       case true =>
