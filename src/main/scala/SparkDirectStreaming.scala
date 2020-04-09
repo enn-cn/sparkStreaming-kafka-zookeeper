@@ -12,8 +12,6 @@ import org.apache.spark.{SparkConf, TaskContext}
   * Created by fengsong97 on 2020年03月09日22:35:47.
   */
 object SparkDirectStreaming {
-
-
   val log = org.apache.log4j.LogManager.getLogger("SparkDirectStreaming")
 
   var appName="Direct Kafka Offset to Zookeeper"
@@ -31,11 +29,11 @@ object SparkDirectStreaming {
   val isLocal=true//是否使用local模式
   val firstReadLastest=false  //第一次启动,从最新的开始消费, 确保第一次启动时间内,让每个topic的每个分区都存上数,来保存偏移量
 
-
   var kafkaParams=Map[String,String](
     "bootstrap.servers"-> brokers,
     "group.id" -> consumer_group_id
   )//创建一个kafkaParams
+
 
   def main(args: Array[String]): Unit = {
     //创建StreamingContext
@@ -124,7 +122,7 @@ object SparkDirectStreaming {
               //获取最小单元并验证数据
               var jsonStr = checkData(list(i)._2)
               //发送数据 并提交偏移量
-              sendHttp(jsonStr)
+              sendHttp(fos + i,jsonStr)
             }
           }
         })
@@ -139,13 +137,13 @@ object SparkDirectStreaming {
     jsonStr
   }
 
-  def sendHttp(jsonStr:String): Unit ={
+  def sendHttp(index:Long,jsonStr:String): Unit ={
     val reponse = HttpTool.getJson(httpGetUrl, jsonStr);
     val code = reponse.code();
     val body = reponse.body().string();
     if (code == 200) {
       val obj: JSONObject = JSON.parseObject(body); //将json字符串转换为json对象
-      println("接口返回数据_" + ": " + obj.get("showapi_res_body"))
+      println("接口返回数据_" +(index)+ ": " + obj.get("showapi_res_body"))
       //提交偏移量
       // KafkaOffsetManager.saveOffsetPart(zkClientUrl,30000, 20000, zkOffsetPath,topic, partitionId.toString, (fos+i+1).toString )
     } else {
