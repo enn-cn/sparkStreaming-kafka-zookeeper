@@ -26,7 +26,7 @@ object SparkDirectStreaming {
   var sparkIntervalSecond=10; //spark 读取 kafka topic 的间隔 秒
   val consumer_group_id="topic001-consumer-group-01"; //消费组 id
   var zkOffsetPath="/kafka/consumers/"+ consumer_group_id + "/offsets";//zk的路径
-  var httpGetUrl="https://sug.so.360.cn/suggest?callback=suggest_so&encodein=utf-8&encodeout=utf-8&format=json&fields=word&word=s"
+  var httpGetUrl="https://route.showapi.com/138-46?showapi_appid=171305&prov=%E5%8C%97%E4%BA%AC&showapi_sign=09b0d21daf0d4328b1579a5c7a4a4394"
   var httpPostUrl="https://api.apiopen.top/getSongPoetry?page=1&count=20"
 
   val isLocal=true//是否使用local模式
@@ -95,7 +95,7 @@ object SparkDirectStreaming {
                val body = reponse.body().string();
                if (code == 200){
                  val obj:JSONObject =JSON.parseObject(body);//将json字符串转换为json对象
-                 println("接口返回数据_"+(fos+i)+": "+obj.get("result"))
+                 println("接口返回数据_"+(fos+i)+": "+obj.get("showapi_res_body"))
                   //提交偏移量
 //                  KafkaOffsetManager.saveOffsetPart(zkClientUrl,30000, 20000, zkOffsetPath,topic, partitionId.toString, (fos+i+1).toString )
 
