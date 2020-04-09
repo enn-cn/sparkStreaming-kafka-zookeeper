@@ -3,14 +3,13 @@ import com.alibaba.fastjson.{JSON, JSONObject}
 import kafka.api.OffsetRequest
 import kafka.message.MessageAndMetadata
 import kafka.serializer.StringDecoder
-import org.I0Itec.zkclient.ZkClient
-import org.apache.spark.{SparkConf, TaskContext}
 import org.apache.spark.streaming.dstream.InputDStream
 import org.apache.spark.streaming.kafka.{HasOffsetRanges, KafkaUtils, OffsetRange}
 import org.apache.spark.streaming.{Seconds, StreamingContext}
+import org.apache.spark.{SparkConf, TaskContext}
 
 /**
-  * Created by QinDongLiang on 2017/11/28.
+  * Created by fengsong97 on 2020年03月09日22:35:47.
   */
 object SparkDirectStreaming {
 
@@ -38,97 +37,7 @@ object SparkDirectStreaming {
     "group.id" -> consumer_group_id
   )//创建一个kafkaParams
 
-
-  /***
-    * 创建StreamingContext
-    * @return
-    */
-  def createStreamingContext():StreamingContext={
-
-    val sparkConf=new SparkConf().setAppName(appName)
-    if (isLocal)  sparkConf.setMaster("local[1]") //local模式
-    sparkConf.set("spark.streaming.stopGracefullyOnShutdown","true")//优雅的关闭
-    sparkConf.set("spark.streaming.backpressure.enabled","true")//激活削峰功能
-    sparkConf.set("spark.streaming.backpressure.initialRate","5000")//第一次读取的最大数据值
-    sparkConf.set("spark.streaming.kafka.maxRatePerPartition","2000")//每个进程每秒最多从kafka读取的数据条数
-
-    if (firstReadLastest)   kafkaParams += ("auto.offset.reset"-> OffsetRequest.LargestTimeString)//从最新的开始消费
-    //创建zkClient注意最后一个参数最好是ZKStringSerializer类型的，不然写进去zk里面的偏移量是乱码
-    val zkClient=ZKPool.getZKClient(zkClientUrl, 30000, 20000)
-
-    val topicsSet=topicStr.split(",").toSet//topic名字
-
-    val ssc=new StreamingContext(sparkConf,Seconds(sparkIntervalSecond))//创建StreamingContext,每隔多少秒一个批次
-    ssc.sparkContext.setLogLevel(logLevel)
-
-    val rdds:InputDStream[(String,String)]=createKafkaStream(ssc,kafkaParams,zkClient,zkOffsetPath,topicsSet)
-
-    //开始处理数据
-    rdds.foreachRDD( rdd=>{
-
-      if(!rdd.isEmpty()){//只处理有数据的rdd，没有数据的直接跳过
-
-        val offsetRanges = rdd.asInstanceOf[HasOffsetRanges].offsetRanges
-
-        //迭代分区，里面的代码是运行在executor上面
-        rdd.foreachPartition(partition=>{
-
-          //如果没有使用广播变量，连接资源就在这个地方初始化
-          //比如数据库连接，hbase，elasticsearch，solr，等等
-
-          val o: OffsetRange = offsetRanges(TaskContext.get.partitionId)
-          val topic=o.topic
-          var partitionId=o.partition
-          var fos =o.fromOffset
-          var uos =o.untilOffset
-
-          if(partition.isEmpty){
-          }else{
-              println(s"读取 topic: ${topic}, partitionId: ${partitionId}, 起始offset: ${fos}, 终止offset: ${uos}")
-
-              //遍历这个分区里面的消息
-              val list= partition.toList
-              for (i <- 0 to (uos-fos-1).toInt ) {
-                println("数据:"+(fos+i)+": "+list(i)._2)
-               val reponse = HttpTool.getJson(httpGetUrl,list(i)._2);
-               val code = reponse.code();
-               val body = reponse.body().string();
-               if (code == 200){
-                 val obj:JSONObject =JSON.parseObject(body);//将json字符串转换为json对象
-                 println("接口返回数据_"+(fos+i)+": "+obj.get("showapi_res_body"))
-                  //提交偏移量
-//                  KafkaOffsetManager.saveOffsetPart(zkClientUrl,30000, 20000, zkOffsetPath,topic, partitionId.toString, (fos+i+1).toString )
-
-                }else{
-                 println("返回错误数据: " +body)
-               }
-
-              }
-          }
-          
-
-        })
-
-        //更新每个批次的偏移量到zk中，注意这段代码是在driver上执行的
-//        KafkaOffsetManager.saveOffsets(zkClient,zkOffsetPath,rdd)
-      }
-
-
-    })
-
-
-    ssc//返回StreamContext
-
-
-  }
-
-
-
-
-
-
   def main(args: Array[String]): Unit = {
-
     //创建StreamingContext
     val ssc=createStreamingContext()
     //开始执行
@@ -138,35 +47,48 @@ object SparkDirectStreaming {
 
   }
 
+  /***
+    * 创建StreamingContext
+    * @return
+    */
+  def createStreamingContext():StreamingContext={
+    val sparkConf=new SparkConf().setAppName(appName)
+    if (isLocal)  sparkConf.setMaster("local[1]") //local模式
+    sparkConf.set("spark.streaming.stopGracefullyOnShutdown","true")//优雅的关闭
+    sparkConf.set("spark.streaming.backpressure.enabled","true")//激活削峰功能
+    sparkConf.set("spark.streaming.backpressure.initialRate","5000")//第一次读取的最大数据值
+    sparkConf.set("spark.streaming.kafka.maxRatePerPartition","2000")//每个进程每秒最多从kafka读取的数据条数
+
+    val ssc=new StreamingContext(sparkConf,Seconds(sparkIntervalSecond))//创建StreamingContext,每隔多少秒一个批次
+    ssc.sparkContext.setLogLevel(logLevel)
+
+    val rdds:InputDStream[(String,String)]=createKafkaStream(ssc)
+    //处理数据
+    processData(rdds)
+    ssc//返回StreamContext
+  }
+
   /****
     *
     * @param ssc  StreamingContext
-    * @param kafkaParams  配置kafka的参数
-    * @param zkClient  zk连接的client
-    * @param zkOffsetPath zk里面偏移量的路径
-    * @param topicsSet     需要处理的topic
     * @return   InputDStream[(String, String)] 返回输入流
     */
-  def createKafkaStream(ssc: StreamingContext,
-                        kafkaParams: Map[String, String],
-                        zkClient: ZkClient,
-                        zkOffsetPath: String,
-                        topicsSet: Set[String]): InputDStream[(String, String)]={
-    //目前仅支持一个topic的偏移量处理，读取zk里面偏移量字符串
-    var partitionsForTopics=KafkaOffsetManager.getPartitionsByConsumer(brokers,consumer_group_id,topicsSet)
-    var zkOffsetData=KafkaOffsetManager.readOffsets(zkClient,zkOffsetPath,partitionsForTopics)
-
+  def createKafkaStream(ssc: StreamingContext): InputDStream[(String, String)]={
+    val topicsSet=topicStr.split(",").toSet//topic名字
     val kafkaStream = firstReadLastest match {
       case true =>
+        kafkaParams += ("auto.offset.reset"-> OffsetRequest.LargestTimeString)//从最新的开始消费
         //如果firstReadLastest，就说明是系统第一次启动 达到保存 初次偏移量的目的
         log.warn("系统第一次启动，从最新的offset开始消费")
         //使用最新的偏移量创建DirectStream
         KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder](ssc, kafkaParams, topicsSet)
-
       case false =>
+        var partitionsForTopics=KafkaOffsetManager.getPartitionsByConsumer(brokers,consumer_group_id,topicsSet)
+        val zkClient=ZKPool.getZKClient(zkClientUrl, 30000, 50000)
+        var zkOffsetData=KafkaOffsetManager.readOffsets(zkClient,zkOffsetPath,partitionsForTopics)
+
         log.warn("从zk中读取到偏移量，从上次的偏移量开始消费数据......")
         println(zkOffsetData)
-
         val messageHandler = (mmd: MessageAndMetadata[String, String]) => (mmd.key, mmd.message)
         //使用上次停止时候的偏移量创建DirectStream
         KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder, (String, String)](ssc, kafkaParams, zkOffsetData, messageHandler)
@@ -174,10 +96,62 @@ object SparkDirectStreaming {
     kafkaStream//返回创建的kafkaStream
   }
 
+  /**
+   * 开始处理数据
+   * @param rdds
+   */
+  def processData(rdds:InputDStream[(String,String)])= {
+    //开始处理数据
+    rdds.foreachRDD(rdd => {
+      if (!rdd.isEmpty()) { //只处理有数据的rdd，没有数据的直接跳过
+        val offsetRanges = rdd.asInstanceOf[HasOffsetRanges].offsetRanges
+        //迭代分区，里面的代码是运行在executor上面
+        rdd.foreachPartition(partition => {
+          //如果没有使用广播变量，连接资源就在这个地方初始化
+          //比如数据库连接，hbase，elasticsearch，solr，等等
+          val o: OffsetRange = offsetRanges(TaskContext.get.partitionId)
+          val topic = o.topic
+          var partitionId = o.partition
+          var fos = o.fromOffset
+          var uos = o.untilOffset
+          if (partition.isEmpty) {
+          } else {
+            println(s"读取 topic: ${topic}, partitionId: ${partitionId}, 起始offset: ${fos}, 终止offset: ${uos}")
+            //遍历这个分区里面的消息
+            val list = partition.toList
+            for (i <- 0 to (uos - fos - 1).toInt) {
+              println("数据:" + (fos + i) + ": " + list(i)._2)
+              //获取最小单元并验证数据
+              var jsonStr = checkData(list(i)._2)
+              //发送数据 并提交偏移量
+              sendHttp(jsonStr)
+            }
+          }
+        })
+      }
+    })
 
 
+  }
 
+  def checkData(jsonStr:String): String ={
+    //格式验证
+    jsonStr
+  }
 
+  def sendHttp(jsonStr:String): Unit ={
+    val reponse = HttpTool.getJson(httpGetUrl, jsonStr);
+    val code = reponse.code();
+    val body = reponse.body().string();
+    if (code == 200) {
+      val obj: JSONObject = JSON.parseObject(body); //将json字符串转换为json对象
+      println("接口返回数据_" + ": " + obj.get("showapi_res_body"))
+      //提交偏移量
+      // KafkaOffsetManager.saveOffsetPart(zkClientUrl,30000, 20000, zkOffsetPath,topic, partitionId.toString, (fos+i+1).toString )
+    } else {
+      println("返回错误数据: " + body)
+    }
+  }
 }
 
 

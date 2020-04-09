@@ -12,6 +12,7 @@ object ZKPool{
     if(map.contains(strkey)){
       map.get(strkey).get
     }else{
+      //创建zkClient注意最后一个参数最好是ZKStringSerializer类型的，不然写进去zk里面的偏移量是乱码
       val zkClient = new ZkClient(zkUrl, sessionTimeout, connectionTimeout,ZKStringSerializer)
       map.put(strkey, zkClient)
       zkClient
