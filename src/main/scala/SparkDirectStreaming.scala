@@ -26,11 +26,11 @@ object SparkDirectStreaming {
   var sparkIntervalSecond=10; //spark 读取 kafka topic 的间隔 秒
   val consumer_group_id="topic001-consumer-group-01"; //消费组 id
   var zkOffsetPath="/kafka/consumers/"+ consumer_group_id + "/offsets";//zk的路径
-  var httpGetUrl="https://api.apiopen.top/getSongPoetry?page=1&count=20"
+  var httpGetUrl="https://sug.so.360.cn/suggest?callback=suggest_so&encodein=utf-8&encodeout=utf-8&format=json&fields=word&word=s"
   var httpPostUrl="https://api.apiopen.top/getSongPoetry?page=1&count=20"
 
   val isLocal=true//是否使用local模式
-  val firstReadLastest=true  //第一次启动,从最新的开始消费, 确保第一次启动时间内,让每个topic的每个分区都存上数,来保存偏移量
+  val firstReadLastest=false  //第一次启动,从最新的开始消费, 确保第一次启动时间内,让每个topic的每个分区都存上数,来保存偏移量
 
 
   var kafkaParams=Map[String,String](
