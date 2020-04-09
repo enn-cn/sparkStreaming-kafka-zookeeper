@@ -8,6 +8,14 @@ public class KafkaConsumerTool {
     static KafkaConsumer kafkaConsumer=null;
 
     public static KafkaConsumer get(String brokerlist,String groupid){
+        //文件内容替换为对应的princ以及keytab文件
+        String path = "./jaas.conf";
+        String krb5 = "./krb5.conf";
+        System.setProperty("java.security.auth.login.config", path);
+        System.setProperty("java.security.krb5.conf", krb5);
+        System.setProperty("sun.security.krb5.debug", "true");
+        System.setProperty("javax.security.auth.useSubjectCredsOnly", "false");
+
         if (kafkaConsumer!=null) return kafkaConsumer;
         Properties props = new Properties();
         props.put("bootstrap.servers", brokerlist);
