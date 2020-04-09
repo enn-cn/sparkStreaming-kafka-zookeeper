@@ -45,7 +45,7 @@ object KafkaOffsetManager {
       //kafka/consumers/groupid/offsets/topic/分区
       var new_zkOffsetPath =  zkOffsetPath +"/" + topic+"/" + partitionId
       ZkUtils.updatePersistentPath(zkClient, new_zkOffsetPath, offsetNum)
-//      log.warn(" 保存的偏移量topic: "+topic+"  分区"+partitionId+":"+offsetNum)
+      log.warn(" 保存的偏移量topic: "+topic+"  分区"+partitionId+":"+offsetNum)
   }
 
 
