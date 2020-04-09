@@ -19,7 +19,7 @@ object SparkDirectStreaming {
 
   val brokers="10.38.64.58:9092"; //多个的话 逗号 分隔
   val zkClientUrl="host238.slave.dev.cluster.enn.cn:2181";
-  val topicStr="mysql-binlog"; //多个的话 逗号 分隔
+  val topicStr="mysql-binlog,my-binlog-error"; //多个的话 逗号 分隔
   var sparkIntervalSecond=10; //spark 读取 kafka topic 的间隔 秒
   val consumer_group_id="topic001-consumer-group-01"; //消费组 id
   var zkOffsetPath="/kafka/consumers/"+ consumer_group_id + "/offsets";//zk的路径
@@ -122,7 +122,7 @@ object SparkDirectStreaming {
               //获取最小单元并验证数据
               var jsonStr = checkData(list(i)._2)
               //发送数据 并提交偏移量
-              sendHttp(fos + i,jsonStr)
+              sendHttp(topic,partitionId,fos + i,jsonStr)
             }
           }
         })
@@ -137,7 +137,7 @@ object SparkDirectStreaming {
     jsonStr
   }
 
-  def sendHttp(index:Long,jsonStr:String): Unit ={
+  def sendHttp(topic:String,partitionId:Int,index:Long,jsonStr:String): Unit ={
     val reponse = HttpTool.getJson(httpGetUrl, jsonStr);
     val code = reponse.code();
     val body = reponse.body().string();
@@ -145,7 +145,8 @@ object SparkDirectStreaming {
       val obj: JSONObject = JSON.parseObject(body); //将json字符串转换为json对象
       println("接口返回数据_" +(index)+ ": " + obj.get("showapi_res_body"))
       //提交偏移量
-      // KafkaOffsetManager.saveOffsetPart(zkClientUrl,30000, 20000, zkOffsetPath,topic, partitionId.toString, (fos+i+1).toString )
+       KafkaOffsetManager.saveOffsetPart(zkClientUrl,30000, 20000, zkOffsetPath,
+                                          topic, partitionId.toString, index.toString )
     } else {
       println("返回错误数据: " + body)
     }
